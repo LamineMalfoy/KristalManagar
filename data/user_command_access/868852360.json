@@ -1,0 +1,12 @@
+{
+  "sysban": true,
+  "unsysban": true,
+  "sysrole": true,
+  "unbanreport": true,
+  "rbanlist": true,
+  "sysadmins": true,
+  "ticket": true,
+  "answer": true,
+  "banreport": true,
+  "пополнить": true
+}

@@ -1,0 +1,23 @@
+{
+  "dependencies": {
+    "@vk-io/hear": "^1.1.1",
+    "async": "^3.2.6",
+    "axios": "^1.11.0",
+    "body-parser": "^1.20.2",
+    "cheerio": "^1.0.0-rc.12",
+    "cron": "^3.1.6",
+    "date-fns": "^3.3.1",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "lowdb": "^7.0.1",
+    "mysql2": "^3.10.1",
+    "ping": "^0.4.4",
+    "tcp-ping": "^0.1.1",
+    "vk-io": "^4.9.1",
+    "xml2js": "^0.6.2"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  }
+}

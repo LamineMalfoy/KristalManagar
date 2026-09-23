@@ -1,0 +1,212 @@
+[
+  {
+    "timestamp": 1761051232687,
+    "adminId": 755536919,
+    "targetId": 1036108354,
+    "actionType": "role",
+    "details": "Снята роль \"Мл. Модератор\", установлен приоритет 0"
+  },
+  {
+    "timestamp": 1761034255613,
+    "adminId": 838887141,
+    "targetId": 1036108354,
+    "actionType": "role",
+    "details": "Назначена роль \"Модератор\" с приоритетом 20"
+  },
+  {
+    "timestamp": 1761014793718,
+    "adminId": 1075650169,
+    "targetId": 843980948,
+    "actionType": "mute",
+    "details": "Причина: Не указана. Срок: 1 минут"
+  },
+  {
+    "timestamp": 1761014607050,
+    "adminId": 843980948,
+    "targetId": 758275426,
+    "actionType": "ban",
+    "details": "Причина: Без причины. Срок: 999 дней"
+  },
+  {
+    "timestamp": 1761013322120,
+    "adminId": 1075650169,
+    "targetId": 829007532,
+    "actionType": "unmute",
+    "details": "Снятие мута через кнопку"
+  },
+  {
+    "timestamp": 1761013310695,
+    "adminId": 1075650169,
+    "targetId": 829007532,
+    "actionType": "mute",
+    "details": "Причина: Не указана. Срок: 10 минут"
+  },
+  {
+    "timestamp": 1761013234546,
+    "adminId": 1075650169,
+    "targetId": 250457594,
+    "actionType": "unmute",
+    "details": "Снятие мута через кнопку"
+  },
+  {
+    "timestamp": 1761013231350,
+    "adminId": 1075650169,
+    "targetId": 250457594,
+    "actionType": "unmute",
+    "details": "Снятие мута через кнопку"
+  },
+  {
+    "timestamp": 1761013200328,
+    "adminId": 829007532,
+    "targetId": 250457594,
+    "actionType": "unmute",
+    "details": "Снятие мута через кнопку"
+  },
+  {
+    "timestamp": 1761013193151,
+    "adminId": 829007532,
+    "targetId": 250457594,
+    "actionType": "mute",
+    "details": "Причина: тест. Срок: 1 минут"
+  },
+  {
+    "timestamp": 1761011941408,
+    "adminId": 829007532,
+    "targetId": 807332118,
+    "actionType": "warn",
+    "details": "Причина: реклама. Предупреждение: 1/3"
+  },
+  {
+    "timestamp": 1761011898211,
+    "adminId": 1075650169,
+    "targetId": 807332118,
+    "actionType": "unban",
+    "details": "Снятие блокировки пользователя в беседе"
+  },
+  {
+    "timestamp": 1761011778423,
+    "adminId": 829007532,
+    "targetId": 807332118,
+    "actionType": "ban",
+    "details": "Причина: реклама. Срок: 999 дней"
+  },
+  {
+    "timestamp": 1760989216696,
+    "adminId": 1075650169,
+    "targetId": 1078975841,
+    "actionType": "role",
+    "details": "Назначена роль \"Основатель\" с приоритетом 90"
+  },
+  {
+    "timestamp": 1760988999941,
+    "adminId": 829007532,
+    "targetId": 886226663,
+    "actionType": "ban",
+    "details": "Причина: оскорбление бота. Срок: 999 дней"
+  },
+  {
+    "timestamp": 1760988955179,
+    "adminId": 1075650169,
+    "targetId": 829007532,
+    "actionType": "role",
+    "details": "Назначена роль \"Директор\" с приоритетом 80"
+  },
+  {
+    "timestamp": 1760988516859,
+    "adminId": 1075650169,
+    "targetId": 897642313,
+    "actionType": "unmute",
+    "details": "Снятие мута через кнопку"
+  },
+  {
+    "timestamp": 1760988496808,
+    "adminId": 573197807,
+    "targetId": 897642313,
+    "actionType": "mute",
+    "details": "Причина: молчи. Срок: 5 минут"
+  },
+  {
+    "timestamp": 1760988496158,
+    "adminId": 1075650169,
+    "targetId": 829007532,
+    "actionType": "role",
+    "details": "Назначена роль \"Зам. Директора\" с приоритетом 70"
+  },
+  {
+    "timestamp": 1760988191405,
+    "adminId": 802694124,
+    "targetId": 859136379,
+    "actionType": "kick",
+    "details": "Исключение пользователя из беседы. Причина: Н/П/Ч/П"
+  },
+  {
+    "timestamp": 1760987423350,
+    "adminId": 1075650169,
+    "targetId": 1019422743,
+    "actionType": "ban",
+    "details": "Причина: Без причины. Срок: 999 дней"
+  },
+  {
+    "timestamp": 1760981689806,
+    "adminId": 843980948,
+    "targetId": 1062593669,
+    "actionType": "role",
+    "details": "Снята роль \"Мл. Модератор\", установлен приоритет 0"
+  },
+  {
+    "timestamp": 1760981687604,
+    "adminId": 843980948,
+    "targetId": 802694124,
+    "actionType": "role",
+    "details": "Снята роль \"Мл. Модератор\", установлен приоритет 0"
+  },
+  {
+    "timestamp": 1760981679638,
+    "adminId": 843980948,
+    "targetId": 722807628,
+    "actionType": "role",
+    "details": "Снята роль \"Мл. Модератор\", установлен приоритет 0"
+  },
+  {
+    "timestamp": 1760979266389,
+    "adminId": 843980948,
+    "targetId": 864715001,
+    "actionType": "role",
+    "details": "Снята роль \"Главный модератор\", установлен приоритет 0"
+  },
+  {
+    "timestamp": 1760979043452,
+    "adminId": 843980948,
+    "targetId": 864715001,
+    "actionType": "role",
+    "details": "Назначена роль \"Главный модератор\" с приоритетом 30"
+  },
+  {
+    "timestamp": 1760978144781,
+    "adminId": 843980948,
+    "targetId": 722807628,
+    "actionType": "role",
+    "details": "Назначена роль \"Мл. Модератор\" с приоритетом 10"
+  },
+  {
+    "timestamp": 1760975634034,
+    "adminId": 843980948,
+    "targetId": 802694124,
+    "actionType": "role",
+    "details": "Назначена роль \"Мл. Модератор\" с приоритетом 10"
+  },
+  {
+    "timestamp": 1760967635852,
+    "adminId": 843980948,
+    "targetId": 1062593669,
+    "actionType": "role",
+    "details": "Назначена роль \"Мл. Модератор\" с приоритетом 10"
+  },
+  {
+    "timestamp": 1760907035294,
+    "adminId": 1075650169,
+    "targetId": 829007532,
+    "actionType": "role",
+    "details": "Назначена роль \"Модератор\" с приоритетом 20"
+  }
+]

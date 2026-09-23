@@ -1,0 +1,65 @@
+[
+  {
+    "timestamp": 1761229163384,
+    "adminId": 1075650169,
+    "targetId": 860259841,
+    "actionType": "kick",
+    "details": "Исключение через кнопку после выхода"
+  },
+  {
+    "timestamp": 1761220279545,
+    "adminId": 893098780,
+    "targetId": -230569480,
+    "actionType": "kick",
+    "details": "Исключение пользователя из беседы. Причина: Не указана"
+  },
+  {
+    "timestamp": 1761220256681,
+    "adminId": 893098780,
+    "targetId": -230569480,
+    "actionType": "mute",
+    "details": "Причина: Не указана. Срок: 1000000 минут"
+  },
+  {
+    "timestamp": 1761215790430,
+    "adminId": 893098780,
+    "targetId": 821265019,
+    "actionType": "role",
+    "details": "Назначена роль \" Технический администратор\" с приоритетом 70"
+  },
+  {
+    "timestamp": 1761211607916,
+    "adminId": 893098780,
+    "targetId": 709871129,
+    "actionType": "mute",
+    "details": "Причина: 10000. Срок: 1 минут"
+  },
+  {
+    "timestamp": 1761211590498,
+    "adminId": 893098780,
+    "targetId": 709871129,
+    "actionType": "unmute",
+    "details": "Снятие мута через кнопку"
+  },
+  {
+    "timestamp": 1761211585859,
+    "adminId": 893098780,
+    "targetId": 709871129,
+    "actionType": "mute",
+    "details": "Причина: Не указана. Срок: 5000 минут"
+  },
+  {
+    "timestamp": 1761211144473,
+    "adminId": 893098780,
+    "targetId": -230631645,
+    "actionType": "kick",
+    "details": "Исключение пользователя из беседы. Причина: ты нам не нужен"
+  },
+  {
+    "timestamp": 1761210995771,
+    "adminId": 893098780,
+    "targetId": 884945855,
+    "actionType": "kick",
+    "details": "Исключение через кнопку после выхода"
+  }
+]

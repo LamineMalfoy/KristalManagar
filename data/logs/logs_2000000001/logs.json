@@ -1,0 +1,37 @@
+[
+  {
+    "timestamp": 1761253791322,
+    "adminId": 1075650169,
+    "targetId": 689178411,
+    "actionType": "mute",
+    "details": "Причина: Не указана. Срок: 50 минут"
+  },
+  {
+    "timestamp": 1761253166493,
+    "adminId": 1075650169,
+    "targetId": 686720044,
+    "actionType": "mute",
+    "details": "Причина: All. Срок: 30 минут"
+  },
+  {
+    "timestamp": 1761246159930,
+    "adminId": 829007532,
+    "targetId": 44360640,
+    "actionType": "unmute",
+    "details": "Снятие мута через кнопку"
+  },
+  {
+    "timestamp": 1761246151868,
+    "adminId": 829007532,
+    "targetId": 44360640,
+    "actionType": "mute",
+    "details": "Причина: test. Срок: 1 минут"
+  },
+  {
+    "timestamp": 1761175710455,
+    "adminId": 1075650169,
+    "targetId": 1023905142,
+    "actionType": "kick",
+    "details": "Исключение пользователя из беседы. Причина: Не указана"
+  }
+]

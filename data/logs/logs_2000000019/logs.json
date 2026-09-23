@@ -1,0 +1,72 @@
+[
+  {
+    "timestamp": 1761238059456,
+    "adminId": 1075650169,
+    "targetId": 1055206540,
+    "actionType": "ban",
+    "details": "Причина: Без причины. Срок: 999 дней"
+  },
+  {
+    "timestamp": 1761229447705,
+    "adminId": 1075650169,
+    "targetId": 1063063335,
+    "actionType": "ban",
+    "details": "Причина: Без причины. Срок: 999 дней"
+  },
+  {
+    "timestamp": 1761229219577,
+    "adminId": 1075650169,
+    "targetId": 801348626,
+    "actionType": "ban",
+    "details": "Причина: нахуй. Срок: 999 дней"
+  },
+  {
+    "timestamp": 1761226648981,
+    "adminId": 1075650169,
+    "targetId": 801348626,
+    "actionType": "role",
+    "details": "Назначена роль \"Следящий за чатом\" с приоритетом 60"
+  },
+  {
+    "timestamp": 1761223357807,
+    "adminId": 1075650169,
+    "targetId": 744702365,
+    "actionType": "mute",
+    "details": "Причина: all. Срок: 30 минут"
+  },
+  {
+    "timestamp": 1761217340759,
+    "adminId": 1075650169,
+    "targetId": -206219064,
+    "actionType": "ban",
+    "details": "Причина: Без причины. Срок: 999 дней"
+  },
+  {
+    "timestamp": 1761217293510,
+    "adminId": 1075650169,
+    "targetId": -232858925,
+    "actionType": "ban",
+    "details": "Причина: бот. Срок: 999 дней"
+  },
+  {
+    "timestamp": 1761217283766,
+    "adminId": 1075650169,
+    "targetId": -232675003,
+    "actionType": "ban",
+    "details": "Причина: бот. Срок: 999 дней"
+  },
+  {
+    "timestamp": 1761217251961,
+    "adminId": 1075650169,
+    "targetId": -231730668,
+    "actionType": "ban",
+    "details": "Причина: бот!. Срок: 999 дней"
+  },
+  {
+    "timestamp": 1761217186348,
+    "adminId": 1075650169,
+    "targetId": 729743977,
+    "actionType": "ban",
+    "details": "Причина: perm. Срок: 999 дней"
+  }
+]
