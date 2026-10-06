@@ -1,8 +1,12 @@
 const util = require('util');
 const { query } = require('../databases');
 const databaseQuery = util.promisify(query);
-const { getUserBalance, updateUserBalance, formatRub } = require('../filedb.js');
+const { getUserBalance, updateUserBalance } = require('../filedb.js');
 const { BUSINESSES } = require('./business.js');
+
+function formatRub(amount) {
+  return Number(amount || 0).toLocaleString('de-DE') + '₽';
+}
 
 module.exports = {
   command: '/снять',
@@ -16,54 +20,70 @@ module.exports = {
       const parts = text.trim().split(/\s+/).slice(1);
 
       const list = await databaseQuery('SELECT * FROM user_businesses WHERE user_id = ?', [userId]);
-      if (!list || !list.length) {
-        return context.send('🏢 У вас нет бизнесов. Купите через /business');
+      if (!list || !list.length) return context.send('🏢 У вас нет бизнесов. Купите через /бизнес');
+
+      // ─── /снять все ───
+      if (parts[0] && (parts[0].toLowerCase() === 'все' || parts[0].toLowerCase() === 'all')) {
+        let total = 0;
+        let count = 0;
+
+        for (const b of list) {
+          const accum = Number(b.accum) || 0;
+          if (accum > 0) {
+            total += accum;
+            count++;
+
+            await databaseQuery(
+              'UPDATE user_businesses SET accum = 0 WHERE user_id = ? AND business_id = ? AND uid = ?',
+              [userId, b.business_id, b.uid]
+            );
+          }
+        }
+
+        if (total <= 0) {
+          return context.send('⏳ Пока нечего снимать.');
+        }
+
+        const balance = await getUserBalance(userId);
+        await updateUserBalance(userId, balance + total);
+
+        return context.send(`💰 Вы сняли ${formatRub(total)} с ${count} бизнесов!`);
       }
 
+      // ─── Без аргумента — показать ───
       if (parts.length < 1) {
-        let msg = `💰 Снять доход с бизнеса\n\n📋 Ваши бизнесы:\n`;
+        let msg = `💰 Снять доход\n\n📋 Ваши бизнесы:\n`;
+        let total = 0;
         for (let i = 0; i < list.length; i++) {
           const info = BUSINESSES.find(x => x.id === Number(list[i].business_id));
           if (!info) continue;
-          const level = Math.min(Math.max(Number(list[i].level) || 1, 1), 10);
-          const income = info.income[level - 1];
-          const now = Math.floor(Date.now() / 1000);
-          const last = Number(list[i].last_collect) || now;
-          const hours = Math.floor((now - last) / 3600);
-          const accum = hours * income;
+          const accum = Number(list[i].accum) || 0;
+          total += accum;
           msg += `${i + 1}. ${info.name} — накоплено: ${formatRub(accum)}\n`;
         }
-        msg += `\nИспользование: /снять <номер>`;
+        msg += `\n💎 Всего: ${formatRub(total)}`;
+        msg += `\n\n📥 /снять <номер> — один бизнес`;
+        msg += `\n📥 /снять все — все бизнесы`;
         return context.send(msg);
       }
 
+      // ─── /снять <номер> ───
       const idx = parseInt(parts[0]) - 1;
-      if (isNaN(idx) || !list[idx]) {
-        return context.send('❌ Неверный номер бизнеса');
-      }
+      if (isNaN(idx) || !list[idx]) return context.send('❌ Неверный номер бизнеса');
 
       const biz = list[idx];
       const info = BUSINESSES.find(x => x.id === Number(biz.business_id));
       if (!info) return context.send('❌ Бизнес не найден');
 
-      const level = Math.min(Math.max(Number(biz.level) || 1, 1), 10);
-      const income = info.income[level - 1];
-
-      const now = Math.floor(Date.now() / 1000);
-      const last = Number(biz.last_collect) || now;
-      const hours = Math.floor((now - last) / 3600);
-      const accum = hours * income;
-
-      if (accum <= 0) {
-        return context.send('⏳ Пока нечего снимать. Подождите хотя бы час.');
-      }
+      const accum = Number(biz.accum) || 0;
+      if (accum <= 0) return context.send('⏳ Пока нечего снимать.');
 
       const balance = await getUserBalance(userId);
       await updateUserBalance(userId, balance + accum);
 
       await databaseQuery(
-        'UPDATE user_businesses SET last_collect = ? WHERE user_id = ? AND business_id = ?',
-        [now, userId, biz.business_id]
+        'UPDATE user_businesses SET accum = 0 WHERE user_id = ? AND business_id = ? AND uid = ?',
+        [userId, biz.business_id, biz.uid]
       );
 
       return context.send(`💰 Вы сняли ${formatRub(accum)} с «${info.name}»`);

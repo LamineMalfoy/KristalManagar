@@ -1,3 +1,7 @@
 {
-  "пополнить": true
+  "пополнить": true,
+  "addhouse": true,
+  "notif": true,
+  "givemoney": true,
+  "delhouse": true
 }

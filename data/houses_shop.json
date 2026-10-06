@@ -1,0 +1,16 @@
+{
+  "1": {
+    "id": 1,
+    "name": "Мажорный Дом",
+    "price": 5000000000000,
+    "priceless": false,
+    "attachment": "photo-241585274_457239094"
+  },
+  "2": {
+    "id": 2,
+    "name": "Мажорный Дом",
+    "price": 5000000000000,
+    "priceless": false,
+    "attachment": "photo-241585274_457239094"
+  }
+}

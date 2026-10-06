@@ -2,11 +2,35 @@ const fs = require('fs');
 const path = require('path');
 const { getUserBalance, getUserBTC } = require('../filedb.js');
 
+// Формат: работает с любыми числами, включая 10^40+
 function formatRub(amount) {
-  return Number(amount || 0).toLocaleString('ru-RU') + '₽';
+  if (amount === undefined || amount === null) return '0₽';
+
+  // Если число — превращаем в строку целиком (без экспоненты)
+  let str;
+  if (typeof amount === 'number') {
+    // Number не может > 2^53, но getUserBalance обычно возвращает число
+    // Проверяем, не потерялось ли что-то
+    if (!isFinite(amount)) return '∞₽';
+    if (amount >= 1e21) {
+      // Для очень больших — используем BigInt-подобный подход
+      str = BigInt(Math.floor(amount)).toString();
+    } else {
+      str = Math.floor(amount).toString();
+    }
+  } else {
+    str = String(amount).split('.')[0];
+  }
+
+  // Убираем минус, если есть (потом вернём)
+  const negative = str.startsWith('-');
+  if (negative) str = str.slice(1);
+
+  // Разбиваем по три цифры
+  const withDots = str.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return (negative ? '-' : '') + withDots + '₽';
 }
 
-// Сумма депозита
 function getDepositSum(userId) {
   try {
     const file = path.join(__dirname, '..', 'data', 'deposits.json');
@@ -14,7 +38,7 @@ function getDepositSum(userId) {
     const data = JSON.parse(fs.readFileSync(file, 'utf8'));
     const d = data[userId];
     if (!d || !d.amount) return 0;
-    return Number(d.amount) || 0;
+    return d.amount;
   } catch (e) {
     return 0;
   }
@@ -33,20 +57,14 @@ module.exports = {
       const btcBalance = await getUserBTC(userId);
       const deposit = getDepositSum(userId);
 
-      // Имя пользователя
       let userName = `[id${userId}|Пользователь]`;
       try {
         const vk = require('../vkInstance');
-        const userInfo = await vk.api.users.get({
-          user_ids: userId,
-          fields: 'first_name,last_name'
-        });
+        const userInfo = await vk.api.users.get({ user_ids: userId, fields: 'first_name,last_name' });
         if (userInfo && userInfo[0]) {
           userName = `[id${userId}|${userInfo[0].first_name} ${userInfo[0].last_name}]`;
         }
-      } catch (error) {
-        console.log('Не удалось получить имя пользователя');
-      }
+      } catch (error) {}
 
       const message =
         `💎 Пользователь: ${userName}\n` +

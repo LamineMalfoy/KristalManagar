@@ -1,0 +1,37 @@
+{
+  "1": {
+    "id": 1,
+    "name": "Дом Молока",
+    "price": null,
+    "priceless": true,
+    "attachment": "photo-241585274_457239079"
+  },
+  "2": {
+    "id": 2,
+    "name": "Дом Ангела",
+    "price": null,
+    "priceless": true,
+    "attachment": "photo-241585274_457239080"
+  },
+  "3": {
+    "id": 3,
+    "name": "Закат",
+    "price": null,
+    "priceless": true,
+    "attachment": "photo-241585274_457239082"
+  },
+  "4": {
+    "id": 4,
+    "name": "Остров Энштейна",
+    "price": null,
+    "priceless": true,
+    "attachment": "photo-241585274_457239081"
+  },
+  "5": {
+    "id": 5,
+    "name": "Лизомен🔥",
+    "price": null,
+    "priceless": true,
+    "attachment": "photo-241585274_457239083"
+  }
+}
