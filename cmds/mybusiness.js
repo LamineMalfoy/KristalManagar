@@ -1,8 +1,30 @@
 const util = require('util');
 const { query } = require('../databases');
 const databaseQuery = util.promisify(query);
-const { formatRub } = require('../filedb.js');
 const { BUSINESSES } = require('./business.js');
+
+function formatRub(amount) {
+  return Number(amount || 0).toLocaleString('de-DE') + '₽';
+}
+
+// Начисление дохода по миллисекундам (как в /бизнес, /снять, /закрыть, /топбиз)
+function accrueIncome(biz, info, now = Date.now()) {
+  const level = Math.min(Math.max(Number(biz.level) || 1, 1), 10);
+  const hourlyIncome = info.income[level - 1];
+  const perMs = hourlyIncome / (60 * 60 * 1000);
+
+  const lastCollect = Number(biz.last_collect) || now;
+  const elapsed = Math.max(0, now - lastCollect);
+
+  const accrued = Math.floor(elapsed * perMs);
+  const accum = Number(biz.accum) || 0;
+
+  return {
+    level,
+    hourlyIncome,
+    newAccum: accum + accrued,
+  };
+}
 
 async function getUserBusinesses(userId) {
   const res = await databaseQuery('SELECT * FROM user_businesses WHERE user_id = ?', [userId]);
@@ -11,8 +33,8 @@ async function getUserBusinesses(userId) {
 
 module.exports = {
   command: '/бизнес',
-  description: 'Мои бизнесы',
-  aliases: ['/mybusiness', '/бизнес'],
+  description: 'Мой бизнес',
+  aliases: ['/mybusiness', '/business'],
 
   async execute(context) {
     try {
@@ -20,36 +42,37 @@ module.exports = {
       const list = await getUserBusinesses(userId);
 
       if (!list.length) {
-        return context.send('🏢 У вас пока нет бизнесов.\nНапишите /business, чтобы посмотреть доступные.');
+        const msg = `🏢 У вас пока нет бизнеса.\n\n` +
+          `💡 Купить: /бизнес купить <номер>\n` +
+          `📋 Доступные: /бизнес`;
+        return context.send(msg);
       }
 
-      let totalIncome = 0;
-      let totalAccum = 0;
-      let lines = '';
+      // У игрока только 1 бизнес
+      const b = list[0];
+      const info = BUSINESSES.find(x => x.id === Number(b.business_id));
+      if (!info) return context.send('❌ Бизнес не найден в базе');
 
-      for (const b of list) {
-        const info = BUSINESSES.find(x => x.id === Number(b.business_id));
-        if (!info) continue;
-        const level = Math.min(Math.max(Number(b.level) || 1, 1), 10);
-        const income = info.income[level - 1];
-        totalIncome += income;
+      const now = Date.now();
+      const acc = accrueIncome(b, info, now);
 
-        const now = Math.floor(Date.now() / 1000);
-        const last = Number(b.last_collect) || now;
-        const hours = Math.floor((now - last) / 3600);
-        const accum = hours * income;
-        totalAccum += accum;
-
-        lines += `• ${info.name} — ${level} ур. — доход/час: ${formatRub(income)} — накоплено: ${formatRub(accum)}\n`;
+      // ── Автосохранение накопленного ──
+      if (acc.newAccum !== (Number(b.accum) || 0)) {
+        await databaseQuery(
+          'UPDATE user_businesses SET accum = ?, last_collect = ? WHERE id = ?',
+          [acc.newAccum, now, b.id]
+        );
       }
 
       const msg =
-        `🏢 Управление бизнесами:\n\n` +
-        `🏪 Всего филиалов: ${list.length}\n` +
-        `🏭 Бизнесы:\n${lines}\n` +
-        `🎯 Уровни: ${list.map(b => b.level).join(', ')}\n` +
-        `💸 Доход: ${formatRub(totalIncome)}/час\n` +
-        `💎 Всего накоплено: ${formatRub(totalAccum)}`;
+        `🏢 Ваш бизнес: «${info.name}»\n\n` +
+        `⭐ Уровень: ${acc.level}/10\n` +
+        `💸 Доход/час: ${formatRub(acc.hourlyIncome)}\n` +
+        `💎 Накоплено: ${formatRub(acc.newAccum)}\n\n` +
+        `━━━━━━━━━━━━━━━\n` +
+        `📥 /снять — снять доход\n` +
+        `⬆️ /повысить — прокачать бизнес\n` +
+        `❌ /закрыть — закрыть бизнес`;
 
       return context.send(msg);
 

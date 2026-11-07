@@ -1,5 +1,8 @@
 const fs = require('fs');
 const path = require('path');
+const util = require('util');
+const { query } = require('../databases');
+const databaseQuery = util.promisify(query);
 const { getUserBalance, updateUserBalance } = require('../filedb.js');
 
 const DATA_FILE = path.join(__dirname, '..', 'data', 'deposits.json');
@@ -28,6 +31,16 @@ function parseAmount(str) {
   if (s.includes('кк')) return parseFloat(s.replace('кк', '')) * 1000000;
   if (s.includes('к')) return parseFloat(s.replace('к', '')) * 1000;
   return parseFloat(s) || 0;
+}
+
+// ─── Проверка: разраб ли игрок ───
+async function isDev(userId) {
+  try {
+    const res = await databaseQuery('SELECT access FROM sysadmins WHERE userid = ?', [userId]);
+    return res && res[0] && Number(res[0].access) === 5;
+  } catch (e) {
+    return false;
+  }
 }
 
 module.exports = {
@@ -76,7 +89,11 @@ module.exports = {
       await updateUserBalance(userId, balance - amount);
 
       const now = Date.now();
-      const endAt = now + days * 24 * 60 * 60 * 1000;
+
+      // ─── Разрабу — 1 секунда, обычным — по дням ───
+      const dev = await isDev(userId);
+      const endAt = dev ? now + 1000 : now + days * 24 * 60 * 60 * 1000;
+
       const payout = Math.floor(amount * (1 + RATES[days]));
 
       deposits[userId] = {
@@ -89,13 +106,15 @@ module.exports = {
       };
       save(deposits);
 
+      const devNote = dev ? '\n\n⚡ Вам как разработчику депозит закроется через 1 секунду!' : '';
+
       return context.send(`🏦 Депозит открыт!
 
 💰 Вложено: ${formatRub(amount)}
 📅 Срок: ${days} дней
 📈 Процент: ${RATES[days] * 100}%
 💵 К возврату: ${formatRub(payout)}
-⏰ Окончание: ${new Date(endAt).toLocaleString('ru-RU')}`);
+⏰ Окончание: ${new Date(endAt).toLocaleString('ru-RU')}${devNote}`);
 
     } catch (e) {
       console.error('Ошибка в /открытьдепозит:', e);

@@ -26,9 +26,9 @@ async function resolveUser(raw) {
   else if (/^id\d+$/i.test(clean)) clean = clean.replace(/^id/i, '');
   try {
     const res = await vk.api.users.get({ user_ids: [clean] });
-    if (res && res[0]) return { id: res[0].id, name: `[id${res[0].id}|${res[0].first_name} ${res[0].last_name}]` };
+    if (res && res[0]) return { id: res[0].id, name: '[id' + res[0].id + '|' + res[0].first_name + ' ' + res[0].last_name + ']' };
   } catch (e) {}
-  if (/^\d+$/.test(clean)) return { id: Number(clean), name: `[id${clean}|Пользователь]` };
+  if (/^\d+$/.test(clean)) return { id: Number(clean), name: '[id' + clean + '|Пользователь]' };
   return null;
 }
 
@@ -46,27 +46,39 @@ module.exports = {
       const parts = text.trim().split(/\s+/).slice(1);
 
       if (parts.length < 3) {
-        return context.send(`❓ Использование:
-/givebiz @юзер <номер> <уровень> [кол-во]
-
-Примеры:
-/givebiz @durov 5 10           ← один
-/givebiz @durov 5 10 100       ← 100 одинаковых
-/givebiz @durov 1-10 10        ← все разные с 1 по 10`);
-
+        return context.send(
+          '❓ Использование:\n' +
+          '/givebiz @юзер <номер> <уровень>\n\n' +
+          'Примеры:\n' +
+          '/givebiz @durov 5 10\n' +
+          '/givebiz @durov 1-10 10\n' +
+          '/givebiz @durov 5,6,7 5'
+        );
       }
 
       const target = await resolveUser(parts[0]);
-      if (!target) return context.send(`❌ Не удалось найти «${parts[0]}»`);
+      if (!target) return context.send('❌ Не удалось найти «' + parts[0] + '»');
 
       const level = safeLevel(parts[2]);
 
+      // ── Проверка: у игрока уже есть бизнес ──
+      const existing = await databaseQuery('SELECT * FROM user_businesses WHERE user_id = ?', [target.id]);
+      if (existing && existing.length > 0) {
+        const exInfo = BUSINESSES.find(x => x.id === Number(existing[0].business_id));
+        return context.send(
+          '❌ У игрока ' + target.name + ' уже есть бизнес «' + (exInfo ? exInfo.name : '—') + '».\n' +
+          'Можно иметь только 1 бизнес.\n\n' +
+          '💡 Сначала пусть закроет: /закрыть'
+        );
+      }
+
+      // ── Парсинг номеров бизнесов ──
       let ids = [];
       const arg = parts[1];
 
       if (/^\d+-\d+$/.test(arg)) {
-        const [a, b] = arg.split('-').map(Number);
-        for (let i = Math.min(a, b); i <= Math.max(a, b); i++) ids.push(i);
+        const range = arg.split('-').map(Number);
+        for (let i = Math.min(range[0], range[1]); i <= Math.max(range[0], range[1]); i++) ids.push(i);
       } else if (arg.includes(',')) {
         ids = arg.split(',').map(x => parseInt(x)).filter(x => !isNaN(x));
       } else {
@@ -74,35 +86,23 @@ module.exports = {
       }
 
       ids = ids.filter(id => id >= 1 && id <= 10);
-      if (!ids.length) return context.send('❌ Укажи номера бизнесов (1–10)');
+      if (!ids.length) return context.send('❌ Укажи номер бизнеса (1–10)');
 
-      const countPerBiz = Math.max(1, Math.min(1000, parseInt(parts[3]) || 1));
+      // Берём только первый валидный бизнес (у игрока максимум 1)
+      const bizId = ids[0];
+      const business = BUSINESSES.find(b => b.id === bizId);
+      if (!business) return context.send('❌ Бизнес с таким номером не найден');
 
-      let given = 0;
-
-      for (const bizId of ids) {
-        const business = BUSINESSES.find(b => b.id === bizId);
-        if (!business) continue;
-
-        for (let k = 0; k < countPerBiz; k++) {
-          try {
-            await databaseQuery(
-              'INSERT INTO user_businesses (user_id, business_id, level, accum, last_collect) VALUES (?, ?, ?, 0, ?)',
-              [target.id, bizId, level, Date.now()]
-            );
-            given++;
-          } catch (e) {
-            console.error('givebiz insert:', e.message);
-          }
-        }
-      }
+      await databaseQuery(
+        'INSERT INTO user_businesses (user_id, business_id, level, accum, last_collect) VALUES (?, ?, ?, 0, ?)',
+        [target.id, bizId, level, Date.now()]
+      );
 
       return context.send(
-        `✅ Готово!\n\n` +
-        `👤 Получатель: ${target.name}\n` +
-        `📊 Уровень: ${level}/10\n` +
-        `🆕 Выдано: ${given}\n\n` +
-        `📋 Бизнесы: ${ids.map(id => BUSINESSES.find(b => b.id === id)?.name).join(', ')}`
+        '✅ Бизнес выдан!\n\n' +
+        '👤 Получатель: ' + target.name + '\n' +
+        '🏢 Бизнес: «' + business.name + '»\n' +
+        '📊 Уровень: ' + level + '/10'
       );
 
     } catch (e) {

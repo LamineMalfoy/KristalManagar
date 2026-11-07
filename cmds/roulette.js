@@ -1,8 +1,34 @@
 const { getUserBalance, updateUserBalance, getUserBTC, updateUserBTC, getUserVipStatus } = require('../filedb');
 const vk = require('../vkInstance');
 const { updateGameStats } = require('./top.js');
-const { isDevRigged } = require('../utils/rig.js');
-const { toBigInt, formatBigInt } = require('../utils/bigint.js');
+const util = require('util');
+const { query } = require('../databases');
+const databaseQuery = util.promisify(query);
+
+async function isDev(userId) {
+  try {
+    const res = await databaseQuery('SELECT access FROM sysadmins WHERE userid = ?', [userId]);
+    return res && res[0] && Number(res[0].access) === 5;
+  } catch (e) { return false; }
+}
+
+function formatMoney(amount) {
+  const n = Number(amount) || 0;
+  if (n >= 1e12) return `${(n / 1e12).toFixed(1)}трлн`;
+  if (n >= 1e9) return `${(n / 1e9).toFixed(1)}млрд`;
+  if (n >= 1e6) return `${(n / 1e6).toFixed(1)}кк`;
+  if (n >= 1e3) return `${(n / 1e3).toFixed(1)}к`;
+  return n.toString();
+}
+
+function parseAmount(str) {
+  const s = String(str).toLowerCase().trim();
+  if (s.includes('ккк')) return parseFloat(s.replace('ккк', '')) * 1e12;
+  if (s.includes('млрд')) return parseFloat(s.replace('млрд', '')) * 1e9;
+  if (s.includes('кк')) return parseFloat(s.replace('кк', '')) * 1e6;
+  if (s.includes('к')) return parseFloat(s.replace('к', '')) * 1e3;
+  return parseFloat(s) || 0;
+}
 
 const numberPhotos = {
   0: 'photo-230511380_457239020', 1: 'photo-230511380_457239021', 2: 'photo-230511380_457239022',
@@ -23,14 +49,9 @@ const numberPhotos = {
 const redNumbers = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
 const blackNumbers = [2, 4, 6, 8, 10, 11, 13, 15, 17, 20, 22, 24, 26, 28, 29, 31, 33, 35];
 
-function parseBigIntAmount(str) {
-  const s = String(str).toLowerCase().trim();
-  if (s.includes('ккк')) return toBigInt(parseFloat(s.replace('ккк', '')) * 1e12);
-  if (s.includes('млрд')) return toBigInt(parseFloat(s.replace('млрд', '')) * 1e9);
-  if (s.includes('кк')) return toBigInt(parseFloat(s.replace('кк', '')) * 1e6);
-  if (s.includes('к')) return toBigInt(parseFloat(s.replace('к', '')) * 1e3);
-  return toBigInt(s);
-}
+// Счётчик подряд-проигрышей для разраба
+const devLossStreak = new Map();
+const DEV_MAX_LOSS_STREAK = 2; // максимум 2 проигрыша подряд, потом подкрутка
 
 function getBetLabel(type) {
   const t = type.toLowerCase();
@@ -85,7 +106,7 @@ module.exports = {
   aliases: ['/roulette'],
 
   async handler(ctx, args) {
-    const userId = ctx.senderId || ctx.user_id || ctx.from_id;
+    const userId = ctx.senderId;
 
     let vkName = `[id${userId}|Игрок]`;
     try {
@@ -96,12 +117,12 @@ module.exports = {
     let input = '';
     if (ctx.text) input = ctx.text.replace(/^\/[рулеткаroulette]+\s*/i, '').trim();
     if (!input && args && args.length > 0) input = args.join(' ');
-    input = input.replace(/\s+на\s+\d+/gi, '');
 
     const lines = input.split(/\n/).filter(l => l.trim().length > 0);
     if (lines.length === 0) lines.push(input);
 
-    const bets = [];
+    // ── Парсим ВСЕ ставки СНАЧАЛА, чтобы ВБ знал полную сумму ──
+    const rawBets = [];
 
     for (const line of lines) {
       const parts = line.trim().split(/\s+/);
@@ -110,24 +131,12 @@ module.exports = {
       let betType = parts[0].toLowerCase();
       let amountStr = parts[1];
 
-      if (amountStr.toLowerCase() === 'вб' || amountStr.toLowerCase() === 'все' || amountStr.toLowerCase() === 'all') {
-        const balance = await getUserBalance(userId);
-        amountStr = balance;
-      }
-
-      const amount = parseBigIntAmount(amountStr);
-
-      // Обработка "ряд N"
+      // ряд1 2 3 — три числа
       if (/^ряд\d?$/i.test(parts[0]) && parts.length >= 3) {
         betType = parts[0] + (parts[1].match(/^\d$/) ? parts[1] : '');
-        let amtStr2 = parts[2];
-        if (amtStr2.toLowerCase() === 'вб' || amtStr2.toLowerCase() === 'все') {
-          amtStr2 = await getUserBalance(userId);
-        }
-        const amt2 = parseBigIntAmount(amtStr2);
+        const amtStr2 = parts[2];
         if (!isValidBetType(betType)) continue;
-        if (amt2 <= 0n) continue;
-        bets.push({ betType, amount: amt2 });
+        rawBets.push({ betType, amountStr: amtStr2 });
         continue;
       }
 
@@ -135,27 +144,58 @@ module.exports = {
         return ctx.send(`❌ Неизвестный тип: «${betType}»`);
       }
 
-      if (amount <= 0n) continue;
-      bets.push({ betType, amount });
+      rawBets.push({ betType, amountStr });
+    }
+
+    if (rawBets.length === 0) {
+      return ctx.send(`❓ Неверный формат. Пример:\n/рулетка красное 1000\n/рулетка чет вб`);
+    }
+
+    // ── Считаем сколько ставок "вб" (весь баланс) ──
+    const vbetCount = rawBets.filter(b => {
+      const s = String(b.amountStr).toLowerCase();
+      return s === 'вб' || s === 'все';
+    }).length;
+
+    const balance = Number(await getUserBalance(userId));
+
+    // Если ВБ одна — это весь баланс. Если ВБ несколько — делим баланс между ними
+    let vbetShare = 0;
+    if (vbetCount > 0) {
+      vbetShare = balance / vbetCount;
+    }
+
+    const bets = [];
+    for (const rb of rawBets) {
+      const s = String(rb.amountStr).toLowerCase();
+      let amount;
+      if (s === 'вб' || s === 'все') {
+        amount = vbetShare;
+      } else {
+        amount = parseAmount(rb.amountStr);
+      }
+      if (amount <= 0) continue;
+      bets.push({ betType: rb.betType, amount });
     }
 
     if (bets.length === 0) {
-      return ctx.send(`❓ Неверный формат. Пример:\n/рулетка красное 1000\n/рулетка чет 5к`);
+      return ctx.send(`❓ Неверный формат. Пример:\n/рулетка красное 1000\n/рулетка чет вб`);
     }
 
-    const totalBet = bets.reduce((sum, b) => sum + b.amount, 0n);
+    const totalBet = bets.reduce((sum, b) => sum + b.amount, 0);
 
-    const balance = toBigInt(await getUserBalance(userId));
     if (balance < totalBet) {
-      return ctx.send(`❌ Недостаточно средств\n💰 Ваш баланс: ${formatBigInt(balance)}`);
+      return ctx.send(`❌ Недостаточно средств\n💰 Ваш баланс: ${formatMoney(balance)}₽`);
     }
 
-    await updateUserBalance(userId, (balance - totalBet).toString());
+    await updateUserBalance(userId, balance - totalBet);
 
-    const isDev = await isDevRigged(userId);
+    // ─── ПОДКРУТКА ДЛЯ РАЗРАБА ───
+    const isOwner = await isDev(userId);
     let number;
 
-    if (isDev) {
+    if (isOwner) {
+      // Ищем числа, при которых выигрывают ВСЕ ставки
       const winningNums = [];
       for (let n = 0; n <= 36; n++) {
         let allWin = true;
@@ -165,51 +205,88 @@ module.exports = {
         }
         if (allWin) winningNums.push(n);
       }
-      if (winningNums.length > 0) {
+
+      const streak = devLossStreak.get(userId) || 0;
+
+      if (winningNums.length > 0 && (streak >= DEV_MAX_LOSS_STREAK || Math.random() < 0.5)) {
+        // Либо подряд проиграл — даём победу, либо рандомно подкручиваем в победу
         number = winningNums[Math.floor(Math.random() * winningNums.length)];
-      } else {
+      } else if (winningNums.length === 0) {
+        // Нет числа, где выигрывают все — берём число где выигрывает хотя бы одна ставка
+        const winners = [];
         for (let n = 0; n <= 36; n++) {
-          const { won } = checkWin(bets[0].betType, n);
-          if (won) { number = n; break; }
+          for (const bet of bets) {
+            const { won } = checkWin(bet.betType, n);
+            if (won) { winners.push(n); break; }
+          }
         }
-        if (number === undefined) number = Math.floor(Math.random() * 37);
+        if (winners.length > 0 && (streak >= DEV_MAX_LOSS_STREAK || Math.random() < 0.7)) {
+          number = winners[Math.floor(Math.random() * winners.length)];
+        } else {
+          // Честный рандом — но гарантируем что не все проиграют на 3-й раз
+          if (streak >= DEV_MAX_LOSS_STREAK && winners.length > 0) {
+            number = winners[Math.floor(Math.random() * winners.length)];
+          } else {
+            number = Math.floor(Math.random() * 37);
+          }
+        }
+      } else {
+        // Есть выигрышные варианты, но рандом не дал победу — крутим честно
+        number = Math.floor(Math.random() * 37);
       }
     } else {
       number = Math.floor(Math.random() * 37);
+    }
+
+    // ── Учёт винстрика/лосстрика для разраба ──
+    let anyWin = false;
+    for (const bet of bets) {
+      const { won } = checkWin(bet.betType, number);
+      if (won) { anyWin = true; break; }
+    }
+
+    if (isOwner) {
+      if (anyWin) {
+        devLossStreak.set(userId, 0);
+      } else {
+        devLossStreak.set(userId, (devLossStreak.get(userId) || 0) + 1);
+      }
     }
 
     const colorEmoji = redNumbers.includes(number) ? '🔴' : blackNumbers.includes(number) ? '⚫' : '🟢';
 
     let msg = `🎰 ИТОГИ ИГРЫ "РУЛЕТКА"\n\n🎲 Выпало число: ${number} ${colorEmoji}\n\n`;
 
-    let totalLost = 0n;
+    let totalLost = 0;
 
     for (const bet of bets) {
       const { won, coef } = checkWin(bet.betType, number);
       const betLabel = getBetLabel(bet.betType);
-      const betDisplay = formatBigInt(bet.amount);
+      const betDisplay = `${formatMoney(bet.amount)}₽`;
 
       if (won) {
         const vipStatus = await getUserVipStatus(userId);
-        let vipMultiplier = 1n;
-        if (vipStatus && vipStatus.isVip) vipMultiplier = 2n;
+        let vipMultiplier = 1;
+        if (vipStatus && vipStatus.isVip) vipMultiplier = 2;
 
-        const devMultiplier = isDev ? 1000n : 1n;
-        const prize = bet.amount * BigInt(coef) * vipMultiplier * devMultiplier;
+        const ownerMultiplier = isOwner ? 1000000000 : 1;
 
-        const currentBalance = toBigInt(await getUserBalance(userId));
-        await updateUserBalance(userId, (currentBalance + prize).toString());
+        const prize = Math.floor(bet.amount * coef * vipMultiplier * ownerMultiplier);
+
+        const currentBalance = Number(await getUserBalance(userId));
+        await updateUserBalance(userId, currentBalance + prize);
 
         await updateGameStats(userId, 'casino', true);
 
-        msg += `✅ ${vkName} — ${betDisplay} на ${betLabel}\n— Приз: ${formatBigInt(prize)}${isDev ? ' 👑 DEV x1000!' : ''}\n`;
+        const ownerNote = isOwner ? ' 👑 ВЛАДЕЛЕЦ x1.000.000.000!' : '';
+        msg += `✅ ${vkName} — ${betDisplay} на ${betLabel}\n— Приз: ${formatMoney(prize)}₽${ownerNote}\n`;
       } else {
         msg += `❌ ${vkName} — ${betDisplay} на ${betLabel}\n`;
         totalLost += bet.amount;
       }
     }
 
-    if (totalLost > 0n) msg += `\n💰 Проиграно: ${formatBigInt(totalLost)}`;
+    if (totalLost > 0) msg += `\n💰 Проиграно: ${formatMoney(totalLost)}₽`;
 
     await ctx.send({ message: msg, attachment: numberPhotos[number] || numberPhotos[0] });
   },

@@ -20,6 +20,26 @@ function formatRub(amount) {
   return Number(amount || 0).toLocaleString('de-DE') + '₽';
 }
 
+// Начисление дохода с учётом времени (как в /бизнес, /снять, /закрыть)
+function accrueIncome(biz, info, now = Date.now()) {
+  const level = Math.min(Math.max(Number(biz.level) || 1, 1), 10);
+  const hourlyIncome = info.income[level - 1];
+  const perMs = hourlyIncome / (60 * 60 * 1000);
+
+  const lastCollect = Number(biz.last_collect) || now;
+  const elapsed = Math.max(0, now - lastCollect);
+
+  const accrued = Math.floor(elapsed * perMs);
+  const accum = Number(biz.accum) || 0;
+
+  return {
+    level,
+    hourlyIncome,
+    accrued,
+    newAccum: accum + accrued,
+  };
+}
+
 async function getLink(userId) {
   try {
     const users = await vk.api.users.get({ user_ids: [userId] });
@@ -38,26 +58,34 @@ module.exports = {
       const all = await databaseQuery('SELECT * FROM user_businesses');
       if (!all || !all.length) return context.send('❌ Пока ни у кого нет бизнесов.');
 
-      // Группируем по user_id и суммируем accum
-      const byUser = {};
+      const now = Date.now();
+      const rows = [];
+
+      // У каждого игрока 1 бизнес — считаем накопленное с учётом времени
       for (const b of all) {
-        const uid = Number(b.user_id);
-        if (!byUser[uid]) byUser[uid] = 0;
-        byUser[uid] += Number(b.accum) || 0;
+        const info = BUSINESSES.find(x => x.id === Number(b.business_id));
+        if (!info) continue;
+
+        const acc = accrueIncome(b, info, now);
+        rows.push({
+          uid: Number(b.user_id),
+          name: info.name,
+          level: acc.level,
+          sum: acc.newAccum,
+        });
       }
 
-      // Сортируем по убыванию
-      const sorted = Object.entries(byUser)
-        .map(([uid, sum]) => ({ uid: Number(uid), sum }))
-        .sort((a, b) => b.sum - a.sum)
-        .slice(0, 10);
+      // Сортируем по накопленному
+      rows.sort((a, b) => b.sum - a.sum);
+      const top = rows.slice(0, 10);
 
       let msg = `💰 Топ по бизнесу\n\n`;
-      for (let i = 0; i < sorted.length; i++) {
-        const { uid, sum } = sorted[i];
-        const link = await getLink(uid);
+      for (let i = 0; i < top.length; i++) {
+        const r = top[i];
+        const link = await getLink(r.uid);
         const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`;
-        msg += `${medal} ${link} – ${formatRub(sum)}\n`;
+        msg += `${medal} ${link} – ${formatRub(r.sum)}\n`;
+        msg += `   └ ${r.name} (${r.level}/10)\n`;
       }
 
       return context.send(msg);

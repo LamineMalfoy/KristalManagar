@@ -1,5 +1,26 @@
 [
   {
+    "timestamp": 1794043153561,
+    "adminId": 1019153440,
+    "targetId": 778382713,
+    "actionType": "ban",
+    "details": "Причина: Без причины. Срок: 999 дней"
+  },
+  {
+    "timestamp": 1794039065272,
+    "adminId": 1019153440,
+    "targetId": 806332889,
+    "actionType": "unwarn",
+    "details": "Отменено предупреждение. Осталось: 0/3"
+  },
+  {
+    "timestamp": 1794039060097,
+    "adminId": 1019153440,
+    "targetId": 806332889,
+    "actionType": "warn",
+    "details": "Причина: тест. Предупреждение: 1/3"
+  },
+  {
     "timestamp": 1761224942382,
     "adminId": 1075650169,
     "targetId": 893098780,

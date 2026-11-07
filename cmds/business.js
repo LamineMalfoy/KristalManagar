@@ -2,7 +2,6 @@ const util = require('util');
 const { query } = require('../databases');
 const databaseQuery = util.promisify(query);
 const { getUserBalance, updateUserBalance } = require('../filedb.js');
-const { getMaxSlots } = require('./купитьслот.js');
 
 const BUSINESSES = [
   { id: 1, name: 'Шаурмичная', price: 50000, income: [2500, 3750, 5000, 6250, 8750, 11250, 13750, 17500, 22500, 30000] },
@@ -21,10 +20,33 @@ function formatRub(amount) {
   return Number(amount || 0).toLocaleString('de-DE') + '₽';
 }
 
+// Вспомогательная: накопить доход с учётом прошедшего времени
+function accrueIncome(biz, info, now) {
+  now = now || Date.now();
+  const level = Math.min(Math.max(Number(biz.level) || 1, 1), 10);
+  const hourlyIncome = info.income[level - 1];
+  const perMs = hourlyIncome / (60 * 60 * 1000);
+
+  const lastCollect = Number(biz.last_collect) || now;
+  const elapsed = Math.max(0, now - lastCollect);
+
+  const accrued = Math.floor(elapsed * perMs);
+  const accum = Number(biz.accum) || 0;
+
+  return {
+    level: level,
+    hourlyIncome: hourlyIncome,
+    accrued: accrued,
+    newAccum: accum + accrued,
+    newLastCollect: now,
+  };
+}
+
 module.exports = {
   command: '/бизнес',
   description: 'Управление бизнесами',
   aliases: ['/business', '/бизнесы', '/mybusiness'],
+  BUSINESSES: BUSINESSES, // Экспортируем, чтобы другие команды (снять, повысить) могли использовать
 
   async execute(context) {
     try {
@@ -32,6 +54,7 @@ module.exports = {
       const text = context.text || '';
       const parts = text.trim().split(/\s+/).slice(1);
 
+      // ─── ПОКУПКА ───
       if (parts[0] === 'купить' || parts[0] === 'buy') {
         const bizId = parseInt(parts[1]);
         if (!bizId || bizId < 1 || bizId > 10) {
@@ -41,17 +64,23 @@ module.exports = {
         const biz = BUSINESSES.find(b => b.id === bizId);
         if (!biz) return context.send('❌ Бизнес не найден');
 
-        const maxSlots = await getMaxSlots(userId);
+        // ── 1 слот максимум, у каждого игрока только 1 бизнес ──
         const myAll = await databaseQuery('SELECT * FROM user_businesses WHERE user_id = ?', [userId]);
-        const myCount = myAll ? myAll.length : 0;
-
-        if (myCount >= maxSlots) {
-          return context.send(`❌ У вас закончились слоты (${myCount}/${maxSlots}).\n🛒 Купите новый: /купитьслот`);
+        if (myAll && myAll.length > 0) {
+          const existingInfo = BUSINESSES.find(x => x.id === Number(myAll[0].business_id));
+          const bizName = existingInfo ? existingInfo.name : '—';
+          return context.send(
+            '❌ У вас уже есть бизнес «' + bizName + '».\n' +
+            'Можно иметь только 1 бизнес.\n\n' +
+            '📥 /снять — снять доход\n' +
+            '⬆️ /повысить — прокачать\n' +
+            '❌ /закрыть — закрыть бизнес'
+          );
         }
 
         const balance = await getUserBalance(userId);
         if (balance < biz.price) {
-          return context.send(`❌ Недостаточно средств\n💰 Нужно: ${formatRub(biz.price)}\n💵 У вас: ${formatRub(balance)}`);
+          return context.send('❌ Недостаточно средств\n💰 Нужно: ' + formatRub(biz.price) + '\n💵 У вас: ' + formatRub(balance));
         }
 
         await updateUserBalance(userId, balance - biz.price);
@@ -60,69 +89,46 @@ module.exports = {
           [userId, bizId, Date.now()]
         );
 
-        return context.send(`✅ Вы купили «${biz.name}» за ${formatRub(biz.price)}!\n\nСлотов занято: ${myCount + 1}/${maxSlots}\nУправление: /бизнес`);
+        return context.send('✅ Вы купили «' + biz.name + '» за ' + formatRub(biz.price) + '!\n\nУправление: /бизнес');
       }
 
-      // ─── Пагинация через аргумент: /бизнес 2 ───
-      let page = parseInt(parts[0]) || 1;
-      if (page < 1) page = 1;
-      const PER_PAGE = 15;
-
+      // ─── ПРОСМОТР (без пагинации, т.к. бизнес 1) ───
       const myBiz = await databaseQuery('SELECT * FROM user_businesses WHERE user_id = ?', [userId]);
 
       if (!myBiz || !myBiz.length) {
-        let message = `🏢 У вас пока нет бизнесов.\n\n📋 Доступные бизнесы:\n\n`;
+        let message = '🏢 У вас пока нет бизнеса.\n\n📋 Доступные бизнесы:\n\n';
         for (const b of BUSINESSES) {
-          message += `${b.id}. ${b.name} — ${formatRub(b.price)}\n`;
+          message += b.id + '. ' + b.name + ' — ' + formatRub(b.price) + '\n';
         }
-        message += `\n💡 Купить: /бизнес купить <номер>`;
+        message += '\n💡 Купить: /бизнес купить <номер>';
         return context.send(message);
       }
 
-      const maxSlots = await getMaxSlots(userId);
-      const totalPages = Math.ceil(myBiz.length / PER_PAGE);
-      if (page > totalPages) page = totalPages;
+      const b = myBiz[0];
+      const info = BUSINESSES.find(x => x.id === Number(b.business_id));
+      if (!info) return context.send('❌ Бизнес не найден в базе');
 
-      const startIdx = (page - 1) * PER_PAGE;
-      const endIdx = Math.min(startIdx + PER_PAGE, myBiz.length);
+      const now = Date.now();
+      const acc = accrueIncome(b, info, now);
 
-      // Считаем общий доход и накопленное по всем бизнесам
-      let totalIncome = 0;
-      let totalAccum = 0;
-      let lines = '';
-
-      for (let i = 0; i < myBiz.length; i++) {
-        const b = myBiz[i];
-        const info = BUSINESSES.find(x => x.id === Number(b.business_id));
-        if (!info) continue;
-
-        const level = Math.min(Math.max(Number(b.level) || 1, 1), 10);
-        const income = info.income[level - 1];
-        const accum = Number(b.accum) || 0;
-
-        totalIncome += income;
-        totalAccum += accum;
-
-        // Показываем только текущую страницу
-        if (i >= startIdx && i < endIdx) {
-          lines += `${i + 1}. ${info.name} — ${level}/10 ур. — доход/час: ${formatRub(income)} — накоплено: ${formatRub(accum)}\n`;
-        }
+      // ── Автосохранение накопленного (стабильный доход) ──
+      if (acc.accrued > 0) {
+        await databaseQuery(
+          'UPDATE user_businesses SET accum = ?, last_collect = ? WHERE id = ?',
+          [acc.newAccum, acc.newLastCollect, b.id]
+        );
       }
 
       const message =
-        `🏢 Управление бизнесами:\n\n` +
-        `🏪 Слотов: ${myBiz.length}/${maxSlots}\n` +
-        `📄 Страница ${page}/${totalPages}\n\n` +
-        `🏭 Бизнесы (${startIdx + 1}–${endIdx} из ${myBiz.length}):\n${lines}\n` +
-        `💸 Доход: ${formatRub(totalIncome)}/час\n` +
-        `💎 Всего накоплено: ${formatRub(totalAccum)}\n\n` +
-        (totalPages > 1 ? `📖 /бизнес ${page + 1 <= totalPages ? page + 1 : 1} — следующая страница\n\n` : '') +
-        `━━━━━━━━━━━━━━━\n` +
-        `📥 /снять <номер> — снять доход\n` +
-        `⬆️ /повысить <номер> — прокачать\n` +
-        `❌ /закрыть <номер> — закрыть бизнес\n` +
-        `🛒 /бизнес купить <номер> — купить новый\n` +
-        `➕ /купитьслот — купить слот`;
+        '🏢 Ваш бизнес: «' + info.name + '»\n\n' +
+        '⭐ Уровень: ' + acc.level + '/10\n' +
+        '💸 Доход/час: ' + formatRub(acc.hourlyIncome) + '\n' +
+        '💎 Накоплено: ' + formatRub(acc.newAccum) + '\n' +
+        '⏱ Зачисляется стабильно каждый час\n\n' +
+        '━━━━━━━━━━━━━━━\n' +
+        '📥 /снять — снять доход\n' +
+        '⬆️ /повысить — прокачать бизнес\n' +
+        '❌ /закрыть — закрыть бизнес';
 
       return context.send(message);
 
@@ -130,7 +136,5 @@ module.exports = {
       console.error('Ошибка в /бизнес:', error);
       return context.send('❌ Произошла ошибка');
     }
-  },
-
-  BUSINESSES
+  }
 };
