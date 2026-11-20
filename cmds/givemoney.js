@@ -153,7 +153,7 @@ module.exports = {
         const action = isDeduction ? 'списано' : 'получил';
         const displayAmount = isDeduction ? formatMoney(-amount) : formatMoney(amount);
 
-        const message = `💙 BLACK KRISTAL — ${operation}
+        const message = `💙 Steady — ${operation}
 
 ${emoji} ${recipientName} ${action} ${displayAmount}₽ от ${adminName}
 💵 Новый баланс: ${formatMoney(newBalance)}₽`;
@@ -172,7 +172,7 @@ ${emoji} ${recipientName} ${action} ${displayAmount}₽ от ${adminName}
         const action = isDeduction ? 'списано' : 'получил';
         const displayAmount = isDeduction ? -amount : amount;
 
-        const message = `💙 BLACK KRISTAL — ${operation}
+        const message = `💙 Steady — ${operation}
 
 ${emoji} ${recipientName} ${action} ${displayAmount} BTC от ${adminName}
 💎 Новый BTC баланс: ${newBTC} BTC`;

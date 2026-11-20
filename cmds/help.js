@@ -3,7 +3,7 @@ module.exports = {
   aliases: ['/commands', '/помощь'],
   description: 'Помощь по боту',
   async execute(context) {
-    const message = `💼 BLACK KRISTAL — умный бот для управления беседой
+    const message = `💼 Steady — умный бот для управления беседой
 
 📘 Основные команды:
 

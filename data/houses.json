@@ -33,5 +33,19 @@
     "price": null,
     "priceless": true,
     "attachment": "photo-241585274_457239083"
+  },
+  "6": {
+    "id": 6,
+    "name": "Мучат в школе",
+    "price": null,
+    "priceless": true,
+    "attachment": "photo-242654088_457239018"
+  },
+  "7": {
+    "id": 7,
+    "name": "Крепость",
+    "price": null,
+    "priceless": true,
+    "attachment": "photo-242654088_457239019"
   }
 }

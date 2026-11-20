@@ -37,6 +37,17 @@ module.exports = {
           message += '• /unbanreport [ID] - Разблокировка возможности создания тикетов\n';
           message += '• /rbanlist - Список заблокированных в системе репортов\n';
           message += '• /пополнить [ID] [dollars/btc] [сумма] - Пополнение баланса пользователя\n';
+          message += '• /sysinfo [ID] - Полная информация о пользователе\n';
+          message += '• /sysinfo_search [запрос] - Поиск пользователя по системе\n';
+          message += '• /checkban [ID] - Проверка статуса блокировки\n';
+          message += '• /checkaccess [ID] - Проверка уровня доступа\n';
+          message += '• /checkmyaccess - Проверка своего уровня доступа\n';
+          message += '• /checkchats - Проверка состояния чатов\n';
+          message += '• /chatid - Узнать ID текущего чата\n';
+          message += '• /givemoney [ID] [сумма] - Выдача денег пользователю\n';
+          message += '• /stats - Просмотр системной статистики\n';
+          message += '• /logs - Просмотр логов действий\n';
+          message += '• /service - Сервисные функции\n';
         }
         
          
@@ -45,6 +56,7 @@ module.exports = {
           message += '• /unsysban [ID] - Разблокировка пользователя\n';
           message += '• /notif [сообщение] - Отправка уведомления по всем чатам\n';
           message += '• /giveagent [ID] - Выдача статуса агента поддержки\n';
+          message += '• /sysrole [ID] [уровень] - Выдача/изменение должности\n';
         }
         
          
@@ -66,6 +78,7 @@ module.exports = {
          
         if (userAccess >= 1) {
           message += '• /null [ID] - Снятие прав доступа (в рамках ваших полномочий)\n';
+          message += '• /edit [ID] - Редактирование прав доступа к командам\n';
         }
         
          

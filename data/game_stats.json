@@ -1,4 +1,14 @@
 {
+  "679405642": {
+    "words_wins": 0,
+    "casino_wins": 2,
+    "other_wins": 0
+  },
+  "702385600": {
+    "words_wins": 0,
+    "casino_wins": 1,
+    "other_wins": 0
+  },
   "713951494": {
     "words_wins": 1,
     "casino_wins": 3,
@@ -21,7 +31,7 @@
   },
   "868852360": {
     "words_wins": 0,
-    "casino_wins": 9,
+    "casino_wins": 13,
     "other_wins": 0
   },
   "897642313": {

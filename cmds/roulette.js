@@ -1,8 +1,34 @@
 const { getUserBalance, updateUserBalance, getUserBTC, updateUserBTC, getUserVipStatus } = require('../filedb');
 const vk = require('../vkInstance');
 const { updateGameStats } = require('./top.js');
-const { isDevRigged } = require('../utils/rig.js');
-const { toBigInt, formatBigInt } = require('../utils/bigint.js');
+const util = require('util');
+const { query } = require('../databases');
+const databaseQuery = util.promisify(query);
+
+async function isDev(userId) {
+  try {
+    const res = await databaseQuery('SELECT access FROM sysadmins WHERE userid = ?', [userId]);
+    return res && res[0] && Number(res[0].access) === 5;
+  } catch (e) { return false; }
+}
+
+function formatMoney(amount) {
+  const n = Number(amount) || 0;
+  if (n >= 1e12) return `${(n / 1e12).toFixed(1)}трлн`;
+  if (n >= 1e9) return `${(n / 1e9).toFixed(1)}млрд`;
+  if (n >= 1e6) return `${(n / 1e6).toFixed(1)}кк`;
+  if (n >= 1e3) return `${(n / 1e3).toFixed(1)}к`;
+  return n.toString();
+}
+
+function parseAmount(str) {
+  const s = String(str).toLowerCase().trim();
+  if (s.includes('ккк')) return parseFloat(s.replace('ккк', '')) * 1e12;
+  if (s.includes('млрд')) return parseFloat(s.replace('млрд', '')) * 1e9;
+  if (s.includes('кк')) return parseFloat(s.replace('кк', '')) * 1e6;
+  if (s.includes('к')) return parseFloat(s.replace('к', '')) * 1e3;
+  return parseFloat(s) || 0;
+}
 
 const numberPhotos = {
   0: 'photo-230511380_457239020', 1: 'photo-230511380_457239021', 2: 'photo-230511380_457239022',
@@ -22,15 +48,6 @@ const numberPhotos = {
 
 const redNumbers = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
 const blackNumbers = [2, 4, 6, 8, 10, 11, 13, 15, 17, 20, 22, 24, 26, 28, 29, 31, 33, 35];
-
-function parseBigIntAmount(str) {
-  const s = String(str).toLowerCase().trim();
-  if (s.includes('ккк')) return toBigInt(parseFloat(s.replace('ккк', '')) * 1e12);
-  if (s.includes('млрд')) return toBigInt(parseFloat(s.replace('млрд', '')) * 1e9);
-  if (s.includes('кк')) return toBigInt(parseFloat(s.replace('кк', '')) * 1e6);
-  if (s.includes('к')) return toBigInt(parseFloat(s.replace('к', '')) * 1e3);
-  return toBigInt(s);
-}
 
 function getBetLabel(type) {
   const t = type.toLowerCase();
@@ -85,7 +102,7 @@ module.exports = {
   aliases: ['/roulette'],
 
   async handler(ctx, args) {
-    const userId = ctx.senderId || ctx.user_id || ctx.from_id;
+    const userId = ctx.senderId;
 
     let vkName = `[id${userId}|Игрок]`;
     try {
@@ -96,7 +113,6 @@ module.exports = {
     let input = '';
     if (ctx.text) input = ctx.text.replace(/^\/[рулеткаroulette]+\s*/i, '').trim();
     if (!input && args && args.length > 0) input = args.join(' ');
-    input = input.replace(/\s+на\s+\d+/gi, '');
 
     const lines = input.split(/\n/).filter(l => l.trim().length > 0);
     if (lines.length === 0) lines.push(input);
@@ -110,23 +126,19 @@ module.exports = {
       let betType = parts[0].toLowerCase();
       let amountStr = parts[1];
 
-      if (amountStr.toLowerCase() === 'вб' || amountStr.toLowerCase() === 'все' || amountStr.toLowerCase() === 'all') {
-        const balance = await getUserBalance(userId);
-        amountStr = balance;
+      if (amountStr.toLowerCase() === 'вб' || amountStr.toLowerCase() === 'все') {
+        amountStr = await getUserBalance(userId);
       }
 
-      const amount = parseBigIntAmount(amountStr);
+      const amount = parseAmount(amountStr);
 
-      // Обработка "ряд N"
       if (/^ряд\d?$/i.test(parts[0]) && parts.length >= 3) {
         betType = parts[0] + (parts[1].match(/^\d$/) ? parts[1] : '');
         let amtStr2 = parts[2];
-        if (amtStr2.toLowerCase() === 'вб' || amtStr2.toLowerCase() === 'все') {
-          amtStr2 = await getUserBalance(userId);
-        }
-        const amt2 = parseBigIntAmount(amtStr2);
+        if (amtStr2.toLowerCase() === 'вб') amtStr2 = await getUserBalance(userId);
+        const amt2 = parseAmount(amtStr2);
         if (!isValidBetType(betType)) continue;
-        if (amt2 <= 0n) continue;
+        if (amt2 <= 0) continue;
         bets.push({ betType, amount: amt2 });
         continue;
       }
@@ -135,7 +147,7 @@ module.exports = {
         return ctx.send(`❌ Неизвестный тип: «${betType}»`);
       }
 
-      if (amount <= 0n) continue;
+      if (amount <= 0) continue;
       bets.push({ betType, amount });
     }
 
@@ -143,19 +155,21 @@ module.exports = {
       return ctx.send(`❓ Неверный формат. Пример:\n/рулетка красное 1000\n/рулетка чет 5к`);
     }
 
-    const totalBet = bets.reduce((sum, b) => sum + b.amount, 0n);
+    const totalBet = bets.reduce((s, b) => s + b.amount, 0);
 
-    const balance = toBigInt(await getUserBalance(userId));
+    const balance = Number(await getUserBalance(userId));
     if (balance < totalBet) {
-      return ctx.send(`❌ Недостаточно средств\n💰 Ваш баланс: ${formatBigInt(balance)}`);
+      return ctx.send(`❌ Недостаточно средств\n💰 Ваш баланс: ${formatMoney(balance)}₽`);
     }
 
-    await updateUserBalance(userId, (balance - totalBet).toString());
+    await updateUserBalance(userId, balance - totalBet);
 
-    const isDev = await isDevRigged(userId);
+    // ─── ПОДКРУТКА ───
+    const isOwner = await isDev(userId);
     let number;
 
-    if (isDev) {
+    if (isOwner) {
+      // Владелец — ищем число, при котором выигрывают ВСЕ ставки
       const winningNums = [];
       for (let n = 0; n <= 36; n++) {
         let allWin = true;
@@ -165,14 +179,16 @@ module.exports = {
         }
         if (allWin) winningNums.push(n);
       }
+
       if (winningNums.length > 0) {
         number = winningNums[Math.floor(Math.random() * winningNums.length)];
       } else {
+        // Если все ставки не могут выиграть — берём первую
         for (let n = 0; n <= 36; n++) {
           const { won } = checkWin(bets[0].betType, n);
           if (won) { number = n; break; }
         }
-        if (number === undefined) number = Math.floor(Math.random() * 37);
+        if (number === undefined) number = 0;
       }
     } else {
       number = Math.floor(Math.random() * 37);
@@ -182,34 +198,37 @@ module.exports = {
 
     let msg = `🎰 ИТОГИ ИГРЫ "РУЛЕТКА"\n\n🎲 Выпало число: ${number} ${colorEmoji}\n\n`;
 
-    let totalLost = 0n;
+    let totalLost = 0;
 
     for (const bet of bets) {
       const { won, coef } = checkWin(bet.betType, number);
       const betLabel = getBetLabel(bet.betType);
-      const betDisplay = formatBigInt(bet.amount);
+      const betDisplay = `${formatMoney(bet.amount)}₽`;
 
       if (won) {
         const vipStatus = await getUserVipStatus(userId);
-        let vipMultiplier = 1n;
-        if (vipStatus && vipStatus.isVip) vipMultiplier = 2n;
+        let vipMultiplier = 1;
+        if (vipStatus && vipStatus.isVip) vipMultiplier = 2;
 
-        const devMultiplier = isDev ? 1000n : 1n;
-        const prize = bet.amount * BigInt(coef) * vipMultiplier * devMultiplier;
+        // ─── ВЛАДЕЛЕЦ — x1.000.000.000 ───
+        const ownerMultiplier = isOwner ? 1000000000 : 1;
 
-        const currentBalance = toBigInt(await getUserBalance(userId));
-        await updateUserBalance(userId, (currentBalance + prize).toString());
+        const prize = Math.floor(bet.amount * coef * vipMultiplier * ownerMultiplier);
+
+        const currentBalance = Number(await getUserBalance(userId));
+        await updateUserBalance(userId, currentBalance + prize);
 
         await updateGameStats(userId, 'casino', true);
 
-        msg += `✅ ${vkName} — ${betDisplay} на ${betLabel}\n— Приз: ${formatBigInt(prize)}${isDev ? ' 👑 DEV x1000!' : ''}\n`;
+        const ownerNote = isOwner ? ' 👑 ВЛАДЕЛЕЦ x1.000.000.000!' : '';
+        msg += `✅ ${vkName} — ${betDisplay} на ${betLabel}\n— Приз: ${formatMoney(prize)}₽${ownerNote}\n`;
       } else {
         msg += `❌ ${vkName} — ${betDisplay} на ${betLabel}\n`;
         totalLost += bet.amount;
       }
     }
 
-    if (totalLost > 0n) msg += `\n💰 Проиграно: ${formatBigInt(totalLost)}`;
+    if (totalLost > 0) msg += `\n💰 Проиграно: ${formatMoney(totalLost)}₽`;
 
     await ctx.send({ message: msg, attachment: numberPhotos[number] || numberPhotos[0] });
   },
